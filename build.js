@@ -2,15 +2,15 @@
 require('aframe');
 require('../index.js');
 
-},{"../index.js":2,"aframe":5}],2:[function(require,module,exports){
+},{"../index.js":2,"aframe":4}],2:[function(require,module,exports){
 /* global AFRAME, THREE */
 if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
 }
 
 var createText = require('three-bmfont-text');
+var loadFont = require('load-bmfont');
 var SDFShader = require('./lib/shaders/sdf');
-var fontLoader = require('./lib/load');
 
 /**
  * bmfont text component for A-Frame.
@@ -41,7 +41,12 @@ AFRAME.registerComponent('bmfont-text', {
       default: '../fonts/DejaVu-sdf.png'
     },
     mode: {
-      type: 'string'
+      type: 'string',
+      default: 'normal'
+    },
+    color: {
+      type: 'color',
+      default: '#000'
     }
   },
 
@@ -55,7 +60,7 @@ AFRAME.registerComponent('bmfont-text', {
     var object3D = el.object3D;
     var data = this.data;
 
-    // load up a 'fnt' and texture
+    // Use fontLoader utility to load 'fnt' and texture
     fontLoader({
       font: data.fnt,
       image: data.fntImage
@@ -66,22 +71,24 @@ AFRAME.registerComponent('bmfont-text', {
       texture.needsUpdate = true;
       texture.anisotropy = 16;
 
-      // Create text geometry
-      var geometry = createText({
+      var options = {
         font: font, // the bitmap font definition
         text: data.text, // the string to render
         width: data.width,
         align: data.left,
         letterSpacing: data.letterSpacing,
         mode: data.mode
-      });
+      };
+
+      // Create text geometry
+      var geometry = createText(options);
 
       // Use './lib/shaders/sdf' to help build a shader material
       var material = new THREE.RawShaderMaterial(SDFShader({
         map: texture,
         side: THREE.DoubleSide,
         transparent: true,
-        color: 'rgb(230, 230, 230)'
+        color: data.color
       }));
 
       var text = new THREE.Mesh(geometry, material);
@@ -97,20 +104,24 @@ AFRAME.registerComponent('bmfont-text', {
   }
 });
 
-},{"./lib/load":3,"./lib/shaders/sdf":4,"three-bmfont-text":31}],3:[function(require,module,exports){
-var loadFont = require('load-bmfont')
-
-// A utility to load a font, then a texture
-module.exports = function (opt, cb) {
+/**
+ * A utility to load a font with bmfont-load
+ * and a texture with Three.TextureLoader()
+ */
+function fontLoader (opt, cb) {
   loadFont(opt.font, function (err, font) {
-    if (err) throw err
-    THREE.ImageUtils.loadTexture(opt.image, undefined, function (tex) {
-      cb(font, tex)
-    })
-  })
+    if (err) {
+      throw err;
+    }
+
+    var textureLoader = new THREE.TextureLoader();
+    textureLoader.load(opt.image, function (texture) {
+      cb(font, texture);
+    });
+  });
 }
 
-},{"load-bmfont":21}],4:[function(require,module,exports){
+},{"./lib/shaders/sdf":3,"load-bmfont":21,"three-bmfont-text":31}],3:[function(require,module,exports){
 var assign = require('object-assign')
 
 module.exports = function createSDFShader (opt) {
@@ -175,7 +186,7 @@ module.exports = function createSDFShader (opt) {
   }, opt)
 }
 
-},{"object-assign":24}],5:[function(require,module,exports){
+},{"object-assign":23}],4:[function(require,module,exports){
 (function (global){
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.AFRAME = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 'use strict';
@@ -61079,7 +61090,7 @@ module.exports = getWakeLock();
 
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],6:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 var str = Object.prototype.toString
 
 module.exports = anArray
@@ -61092,13 +61103,13 @@ function anArray(arr) {
   )
 }
 
-},{}],7:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 module.exports = function numtype(num, def) {
 	return typeof num === 'number'
 		? num 
 		: (typeof def === 'number' ? def : 0)
 }
-},{}],8:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -61224,7 +61235,23 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],9:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
+var Buffer = require('buffer').Buffer; // for use with browserify
+
+module.exports = function (a, b) {
+    if (!Buffer.isBuffer(a)) return undefined;
+    if (!Buffer.isBuffer(b)) return undefined;
+    if (typeof a.equals === 'function') return a.equals(b);
+    if (a.length !== b.length) return false;
+    
+    for (var i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    
+    return true;
+};
+
+},{"buffer":9}],9:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -62776,7 +62803,7 @@ function blitBuffer (src, dst, offset, length) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":8,"ieee754":15,"isarray":10}],10:[function(require,module,exports){
+},{"base64-js":7,"ieee754":15,"isarray":10}],10:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
@@ -63368,7 +63395,7 @@ function getAlignType(align) {
     return ALIGN_RIGHT
   return ALIGN_LEFT
 }
-},{"as-number":7,"indexof-property":16,"word-wrapper":36,"xtend":40}],21:[function(require,module,exports){
+},{"as-number":6,"indexof-property":16,"word-wrapper":36,"xtend":39}],21:[function(require,module,exports){
 (function (Buffer){
 var xhr = require('xhr')
 var noop = function(){}
@@ -63468,7 +63495,7 @@ function getBinaryOpts(opt) {
   }, opt)
 }
 }).call(this,require("buffer").Buffer)
-},{"./lib/is-binary":22,"buffer":9,"parse-bmfont-ascii":25,"parse-bmfont-binary":26,"parse-bmfont-xml":27,"xhr":37,"xtend":40}],22:[function(require,module,exports){
+},{"./lib/is-binary":22,"buffer":9,"parse-bmfont-ascii":25,"parse-bmfont-binary":26,"parse-bmfont-xml":27,"xhr":37,"xtend":39}],22:[function(require,module,exports){
 (function (Buffer){
 var equal = require('buffer-equal')
 var HEADER = new Buffer([66, 77, 70, 3])
@@ -63479,23 +63506,7 @@ module.exports = function(buf) {
   return buf.length > 4 && equal(buf.slice(0, 4), HEADER)
 }
 }).call(this,require("buffer").Buffer)
-},{"buffer":9,"buffer-equal":23}],23:[function(require,module,exports){
-var Buffer = require('buffer').Buffer; // for use with browserify
-
-module.exports = function (a, b) {
-    if (!Buffer.isBuffer(a)) return undefined;
-    if (!Buffer.isBuffer(b)) return undefined;
-    if (typeof a.equals === 'function') return a.equals(b);
-    if (a.length !== b.length) return false;
-    
-    for (var i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) return false;
-    }
-    
-    return true;
-};
-
-},{"buffer":9}],24:[function(require,module,exports){
+},{"buffer":9,"buffer-equal":8}],23:[function(require,module,exports){
 'use strict';
 /* eslint-disable no-unused-vars */
 var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -63579,6 +63590,27 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 
 	return to;
 };
+
+},{}],24:[function(require,module,exports){
+module.exports = once
+
+once.proto = once(function () {
+  Object.defineProperty(Function.prototype, 'once', {
+    value: function () {
+      return once(this)
+    },
+    configurable: true
+  })
+})
+
+function once (fn) {
+  var called = false
+  return function () {
+    if (called) return
+    called = true
+    return fn.apply(this, arguments)
+  }
+}
 
 },{}],25:[function(require,module,exports){
 module.exports = function parseBMFontAscii(data) {
@@ -63936,7 +63968,7 @@ function getAttribList(element) {
 function mapName(nodeName) {
   return NAME_MAP[nodeName.toLowerCase()] || nodeName
 }
-},{"./parse-attribs":28,"xml-parse-from-string":39}],28:[function(require,module,exports){
+},{"./parse-attribs":28,"xml-parse-from-string":38}],28:[function(require,module,exports){
 //Some versions of GlyphDesigner have a typo
 //that causes some bugs with parsing. 
 //Need to confirm with recent version of the software
@@ -64040,7 +64072,7 @@ module.exports = function createQuadElements(array, opt) {
     }
     return indices
 }
-},{"an-array":6,"dtype":11,"is-buffer":18}],31:[function(require,module,exports){
+},{"an-array":5,"dtype":11,"is-buffer":18}],31:[function(require,module,exports){
 var createLayout = require('layout-bmfont-text')
 var inherits = require('inherits')
 var createIndices = require('quad-indices')
@@ -64166,7 +64198,7 @@ TextGeometry.prototype.computeBoundingBox = function () {
   utils.computeBox(positions, bbox)
 }
 
-},{"./lib/utils":32,"./lib/vertices":33,"inherits":17,"layout-bmfont-text":20,"object-assign":24,"quad-indices":30,"three-buffer-vertex-data":34}],32:[function(require,module,exports){
+},{"./lib/utils":32,"./lib/vertices":33,"inherits":17,"layout-bmfont-text":20,"object-assign":23,"quad-indices":30,"three-buffer-vertex-data":34}],32:[function(require,module,exports){
 var itemSize = 2
 var box = { min: [0, 0], max: [0, 0] }
 
@@ -64718,28 +64750,7 @@ function _createXHR(options) {
 
 function noop() {}
 
-},{"global/window":14,"is-function":19,"once":38,"parse-headers":29,"xtend":40}],38:[function(require,module,exports){
-module.exports = once
-
-once.proto = once(function () {
-  Object.defineProperty(Function.prototype, 'once', {
-    value: function () {
-      return once(this)
-    },
-    configurable: true
-  })
-})
-
-function once (fn) {
-  var called = false
-  return function () {
-    if (called) return
-    called = true
-    return fn.apply(this, arguments)
-  }
-}
-
-},{}],39:[function(require,module,exports){
+},{"global/window":14,"is-function":19,"once":24,"parse-headers":29,"xtend":39}],38:[function(require,module,exports){
 module.exports = (function xmlparser() {
   //common browsers
   if (typeof window.DOMParser !== 'undefined') {
@@ -64767,7 +64778,7 @@ module.exports = (function xmlparser() {
     return div
   }
 })()
-},{}],40:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;
